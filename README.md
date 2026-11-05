@@ -5,6 +5,7 @@ A distraction-free PDF reader that feels like reading a real book.
 - Realistic page turning: click or swipe a page edge, or drag a corner to peel it slowly
 - Synthesised page-turn sound (can be switched off)
 - Bookmarks with a ribbon on the page and a list with text previews
+- Highlighter in four colours that snaps to the words you drag across, with a list of every highlight
 - The PDF's own table of contents in a side drawer
 - White, Sepia and Night paper
 - Controls hide until you move to the top or bottom edge
@@ -29,6 +30,7 @@ Then go to http://localhost:8000.
 | --- | --- |
 | `←` `→` / Space | Turn pages |
 | `B` | Bookmark the current page |
+| `H` | Highlighter on/off |
 | `T` | Contents |
 | `F` | Full screen |
 | `Home` / `End` | First / last page |

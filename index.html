@@ -138,6 +138,32 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
 .page .spin { position: absolute; inset: 0; display: grid; place-items: center; color: #9a9a92; font-family: var(--font-display); font-style: italic; font-size: .9rem; }
 .page.ready .spin { display: none; }
 
+.page .hl { position: absolute; inset: 0; pointer-events: none; }
+.page .hl i { position: absolute; border-radius: 2px; mix-blend-mode: multiply; }
+.hl i.c-yellow { background: rgba(255, 222, 50, .55); }
+.hl i.c-green { background: rgba(110, 215, 120, .45); }
+.hl i.c-pink { background: rgba(255, 120, 175, .42); }
+.hl i.c-blue { background: rgba(100, 175, 255, .42); }
+.hl i.preview { box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
+#reader.paper-night .page .hl i { mix-blend-mode: screen; opacity: .55; }
+#hlOverlay { position: absolute; inset: 0; z-index: 30; cursor: text; touch-action: none; }
+#hlBar {
+  position: absolute; z-index: 55; left: 50%; transform: translateX(-50%);
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px)); transition: bottom .35s ease;
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 12px; border-radius: 999px;
+  background: var(--chrome); border: 1px solid var(--line); box-shadow: 0 10px 30px -12px var(--shadow);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+#reader.idle #hlBar { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+.swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.swatch[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 2px var(--chrome); }
+.swatch.c-yellow { background: #ffd93a; } .swatch.c-green { background: #74d57e; }
+.swatch.c-pink { background: #ff86b6; } .swatch.c-blue { background: #6fb2ff; }
+#hlDone { border: 0; border-radius: 999px; padding: 6px 14px; background: var(--ink); color: var(--desk-glow); cursor: pointer; font-weight: 500; font-size: .85rem; }
+.item .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
+.item .rm-hl { grid-column: 1 / -1; justify-self: start; }
+.item .q { font-family: var(--font-display); font-size: .95rem; line-height: 1.4; min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
 #reader.paper-sepia .page { background: #f3e9d2; }
 #reader.paper-sepia .page canvas { filter: sepia(.32) saturate(1.1) brightness(.97); }
 #reader.paper-night .page { background: #1b1b19; }
@@ -256,6 +282,7 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
     <div class="tips">
       <span><kbd>←</kbd> <kbd>→</kbd> turn pages</span>
       <span><kbd>B</kbd> bookmark</span>
+      <span><kbd>H</kbd> highlighter</span>
       <span><kbd>F</kbd> full screen</span>
       <span>Drag a page corner to turn it slowly</span>
     </div>
@@ -269,6 +296,7 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
     <button class="ibtn" id="shelfBtn" title="Back to shelf" aria-label="Back to shelf"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
     <div id="bookTitle"></div>
     <button class="ibtn" id="tocBtn" title="Contents and bookmarks" aria-label="Contents and bookmarks"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+    <button class="ibtn" id="hlBtn" title="Highlighter (H)" aria-label="Highlighter" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M14.5 4.5l5 5L10 19H5v-5z"/><path d="M12 7l5 5"/><path d="M3 22h9"/></svg></button>
     <button class="ibtn" id="markBtn" title="Bookmark this page (B)" aria-label="Bookmark this page" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></button>
     <button class="ibtn" id="paperBtn" title="Paper colour" aria-label="Paper colour"><span class="sw"></span><span class="lbl" id="paperLbl">White</span></button>
     <button class="ibtn" id="soundBtn" title="Page sound" aria-label="Page sound" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z"/><path id="waves" d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12"/></svg></button>
@@ -281,16 +309,27 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
     <span id="pageLabel"></span>
   </footer>
 
-  <button id="handle" aria-label="Show controls" title="Show controls"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+  <div id="hlOverlay" hidden></div>
+  <div id="hlBar" hidden role="toolbar" aria-label="Highlighter colours">
+    <button class="swatch c-yellow" data-c="yellow" aria-label="Yellow"></button>
+    <button class="swatch c-green" data-c="green" aria-label="Green"></button>
+    <button class="swatch c-pink" data-c="pink" aria-label="Pink"></button>
+    <button class="swatch c-blue" data-c="blue" aria-label="Blue"></button>
+    <button id="hlDone">Done</button>
+  </div>
+
+  <button id="handle"aria-label="Show controls" title="Show controls"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
 
   <aside id="panel" aria-label="Contents and bookmarks">
     <div class="tabs" role="tablist">
       <button class="tab" id="tabToc" role="tab" aria-selected="true">Contents</button>
       <button class="tab" id="tabMarks" role="tab" aria-selected="false">Bookmarks</button>
+      <button class="tab" id="tabHls" role="tab" aria-selected="false">Highlights</button>
       <button class="ibtn" id="closePanel" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="list" id="tocList"></div>
     <div class="list" id="markList" hidden></div>
+    <div class="list" id="hlList" hidden></div>
   </aside>
 
   <div id="loading" hidden>Opening the book…</div>
@@ -467,6 +506,8 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
     try { const info = (await pdf.getMetadata()).info; if (info && info.Title && info.Title.trim().length > 2) title = info.Title.trim(); } catch {}
     meta = existing || { id, name, title, bookmarks: [], lastPage: 0 };
     meta.pages = pdf.numPages; meta.openedAt = Date.now();
+    meta.highlights = meta.highlights || [];
+    textCache.clear();
     if (!existing) meta.title = title;
     $("bookTitle").textContent = meta.title;
     document.title = meta.title + " · Quiet Pages";
@@ -482,6 +523,7 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
     buildBook(current);
     buildToc();
     renderMarks();
+    renderHighlights();
     showLoading(false);
     wake();
     poke();
@@ -527,9 +569,10 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
       const d = document.createElement("div");
       d.className = "page " + (portrait ? "p" : (i === 0 || i % 2 === 0 ? "r" : "l")) + (marks.has(i) ? " marked" : "");
       if (i === 0 || i === n - 1) d.dataset.density = "hard";
-      d.innerHTML = `<div class="spin">${i + 1}</div><div class="grain"></div><div class="ribbon"></div>`;
+      d.innerHTML = `<div class="spin">${i + 1}</div><div class="hl"></div><div class="grain"></div><div class="ribbon"></div>`;
       pageEls.push(d);
     }
+    new Set(meta.highlights.map((h) => h.page)).forEach(paintHL);
     flip = new St.PageFlip(holder, {
       width: pageW, height: pageH, size: "stretch",
       minWidth: portrait ? pageW : 50, maxWidth: 4000, minHeight: 50, maxHeight: 6000,
@@ -601,6 +644,7 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
     meta.lastPage = i;
     clearTimeout(saveT); saveT = setTimeout(() => { meta.openedAt = Date.now(); store.put(meta); }, 600);
     highlightToc();
+    if (hlMode) visiblePages().forEach(pageText);
   }
 
   function go(i, animate) {
@@ -646,6 +690,183 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
       const tc = await (await pdf.getPage(i + 1)).getTextContent();
       return tc.items.map((t) => t.str).join(" ").replace(/\s+/g, " ").trim().slice(0, 140);
     } catch { return ""; }
+  }
+
+  // ---------- highlighter ----------
+  // Highlights snap to the PDF's text positions, stored in 0–1 page coordinates so they survive resizing.
+  const textCache = new Map();
+  const colorHex = { yellow: "#ffd93a", green: "#74d57e", pink: "#ff86b6", blue: "#6fb2ff" };
+  let hlMode = false, hlColor = prefs.get("hlColor", "yellow"), drag = null;
+  if (!colorHex[hlColor]) hlColor = "yellow";
+
+  function pageText(i) {
+    if (textCache.has(i)) return textCache.get(i);
+    const p = (async () => {
+      try {
+        const page = await pdf.getPage(i + 1);
+        const vp = page.getViewport({ scale: 1 });
+        const tc = await page.getTextContent();
+        const out = [];
+        for (const it of tc.items) {
+          if (!it.str || !it.str.trim() || !it.width) continue;
+          const tx = pdfjsLib.Util.transform(vp.transform, it.transform);
+          const h = Math.hypot(tx[2], tx[3]);
+          out.push({ s: it.str, x: tx[4] / vp.width, y: (tx[5] - h) / vp.height, w: it.width / vp.width, h: h / vp.height });
+        }
+        return out;
+      } catch { return []; }
+    })();
+    textCache.set(i, p);
+    return p;
+  }
+  function visiblePages() {
+    return (portrait || current === 0 ? [current] : [current, current + 1]).filter((i) => i < pageEls.length);
+  }
+  function pageAt(x, y) {
+    for (const i of visiblePages()) {
+      const r = pageEls[i].getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return { i, r };
+    }
+    return null;
+  }
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const norm = (e, r) => ({ x: clamp((e.clientX - r.left) / r.width, 0, 1), y: clamp((e.clientY - r.top) / r.height, 0, 1) });
+
+  function selection(items, a, b) {
+    if (!items.length) {
+      // no text layer (a scanned page): highlight the dragged box
+      const h = Math.max(Math.abs(a.y - b.y), 0.014);
+      return { rects: [{ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h }], text: "" };
+    }
+    const near = (p) => {
+      let best = 0, bd = Infinity;
+      items.forEach((it, k) => {
+        const dx = Math.max(it.x - p.x, 0, p.x - (it.x + it.w));
+        const dy = Math.max(it.y - p.y, 0, p.y - (it.y + it.h));
+        const d = dx * dx + dy * dy * 4;
+        if (d < bd) { bd = d; best = k; }
+      });
+      return best;
+    };
+    let s = near(a), t = near(b), pa = a, pb = b;
+    if (s > t || (s === t && a.x > b.x)) { [s, t] = [t, s]; [pa, pb] = [pb, pa]; }
+    const onLine = (it, p) => p.y >= it.y - it.h * 0.4 && p.y <= it.y + it.h * 1.4;
+    const parts = [];
+    for (let k = s; k <= t; k++) {
+      const it = items[k], n = it.s.length;
+      let c0 = 0, c1 = n;
+      if (k === s && onLine(it, pa)) c0 = Math.floor((pa.x - it.x) / it.w * n);
+      if (k === t && onLine(it, pb)) c1 = Math.ceil((pb.x - it.x) / it.w * n);
+      c0 = clamp(c0, 0, n); c1 = clamp(c1, c0, n);
+      if (c1 <= c0) continue;
+      parts.push({ x: it.x + it.w * c0 / n, w: it.w * (c1 - c0) / n, y: it.y, h: it.h, s: it.s.slice(c0, c1) });
+    }
+    const lines = [];
+    for (const p of parts) {
+      const L = lines[lines.length - 1];
+      if (L && Math.abs(p.y - L.y) < Math.min(p.h, L.h) * 0.5) {
+        const x1 = Math.max(L.x + L.w, p.x + p.w);
+        L.x = Math.min(L.x, p.x); L.w = x1 - L.x;
+        const y1 = Math.max(L.y + L.h, p.y + p.h); L.y = Math.min(L.y, p.y); L.h = y1 - L.y;
+      } else lines.push({ x: p.x, y: p.y, w: p.w, h: p.h });
+    }
+    const rects = lines.map((l) => ({ x: l.x - 0.002, y: l.y - l.h * 0.12, w: l.w + 0.004, h: l.h * 1.28 }));
+    const text = parts.map((p) => p.s).join(" ").replace(/-\s+/g, "").replace(/\s+/g, " ").trim();
+    return { rects, text };
+  }
+
+  function rectEls(layer, rects, color, cls) {
+    for (const r of rects) {
+      const d = document.createElement("i");
+      d.className = "c-" + color + (cls ? " " + cls : "");
+      d.style.cssText = `left:${r.x * 100}%;top:${r.y * 100}%;width:${r.w * 100}%;height:${r.h * 100}%`;
+      layer.appendChild(d);
+    }
+  }
+  function paintHL(i) {
+    const layer = pageEls[i]?.querySelector(".hl");
+    if (!layer) return;
+    layer.innerHTML = "";
+    meta.highlights.filter((h) => h.page === i).forEach((h) => rectEls(layer, h.rects, h.color));
+  }
+  function hitHL(i, p) {
+    return meta.highlights.find((h) => h.page === i && h.rects.some((r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h));
+  }
+
+  const overlay = $("hlOverlay");
+  overlay.addEventListener("pointerdown", async (e) => {
+    const hit = pageAt(e.clientX, e.clientY);
+    if (!hit) return;
+    overlay.setPointerCapture(e.pointerId);
+    const a = norm(e, hit.r);
+    drag = { i: hit.i, r: hit.r, a, b: a, moved: false, items: null };
+    drag.items = await pageText(hit.i);
+  });
+  overlay.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    drag.b = norm(e, drag.r);
+    if (Math.hypot(drag.b.x - drag.a.x, drag.b.y - drag.a.y) > 0.006) drag.moved = true;
+    if (!drag.moved || !drag.items) return;
+    const layer = pageEls[drag.i].querySelector(".hl");
+    layer.querySelectorAll(".preview").forEach((n) => n.remove());
+    rectEls(layer, selection(drag.items, drag.a, drag.b).rects, hlColor, "preview");
+  });
+  const endDrag = async () => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (!d.moved) {
+      const h = hitHL(d.i, d.a);
+      if (h) removeHL(h);
+      return;
+    }
+    const items = d.items || await pageText(d.i);
+    const sel = selection(items, d.a, d.b);
+    if (sel.rects.length && sel.rects[0].w > 0.003) {
+      meta.highlights.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), page: d.i, color: hlColor, rects: sel.rects, text: sel.text, at: Date.now() });
+      store.put(meta); renderHighlights();
+    }
+    paintHL(d.i);
+  };
+  overlay.addEventListener("pointerup", endDrag);
+  overlay.addEventListener("pointercancel", () => { if (drag) { paintHL(drag.i); drag = null; } });
+
+  function removeHL(h) {
+    meta.highlights = meta.highlights.filter((x) => x !== h);
+    store.put(meta); paintHL(h.page); renderHighlights();
+    toast("Highlight removed");
+  }
+  function setHL(on) {
+    hlMode = on;
+    overlay.hidden = !on; $("hlBar").hidden = !on;
+    $("hlBtn").setAttribute("aria-pressed", on ? "true" : "false");
+    if (on) { visiblePages().forEach(pageText); closePanel(); toast("Drag across text to highlight. Tap a highlight to remove it."); }
+  }
+  function setColor(c) {
+    hlColor = c; prefs.set("hlColor", c);
+    document.querySelectorAll("#hlBar .swatch").forEach((s) => s.setAttribute("aria-pressed", s.dataset.c === c ? "true" : "false"));
+  }
+  setColor(hlColor);
+  document.querySelectorAll("#hlBar .swatch").forEach((s) => (s.onclick = () => setColor(s.dataset.c)));
+  $("hlBtn").onclick = () => setHL(!hlMode);
+  $("hlDone").onclick = () => setHL(false);
+
+  function renderHighlights() {
+    const el = $("hlList");
+    const list = [...meta.highlights].sort((a, b) => a.page - b.page || a.at - b.at);
+    if (!list.length) { el.innerHTML = `<p class="note">No highlights yet. Turn on the highlighter with the marker button or <kbd>H</kbd>, then drag across a line of text.</p>`; return; }
+    el.innerHTML = "";
+    for (const h of list) {
+      const row = document.createElement("div");
+      row.className = "item";
+      row.innerHTML = `<span class="q"><span class="dot" style="background:${colorHex[h.color]}"></span></span><span class="n">p. ${h.page + 1}</span><button class="linkish rm-hl">Remove</button>`;
+      row.querySelector(".q").append(h.text || "Marked area");
+      row.style.cursor = "pointer";
+      row.onclick = (e) => {
+        if (e.target.closest(".rm-hl")) { removeHL(h); return; }
+        closePanel(); go(h.page, true);
+      };
+      el.appendChild(row);
+    }
   }
 
   // ---------- contents ----------
@@ -710,13 +931,14 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
   }
   function closePanel() { $("panel").classList.remove("open"); poke(); }
   function selectTab(t) {
-    $("tabToc").setAttribute("aria-selected", t === "toc"); $("tabMarks").setAttribute("aria-selected", t === "marks");
-    $("tocList").hidden = t !== "toc"; $("markList").hidden = t !== "marks";
+    $("tabToc").setAttribute("aria-selected", t === "toc"); $("tabMarks").setAttribute("aria-selected", t === "marks"); $("tabHls").setAttribute("aria-selected", t === "hls");
+    $("tocList").hidden = t !== "toc"; $("markList").hidden = t !== "marks"; $("hlList").hidden = t !== "hls";
   }
   $("tocBtn").onclick = () => $("panel").classList.contains("open") ? closePanel() : openPanel();
   $("closePanel").onclick = closePanel;
   $("tabToc").onclick = () => selectTab("toc");
   $("tabMarks").onclick = () => selectTab("marks");
+  $("tabHls").onclick = () => selectTab("hls");
   $("markBtn").onclick = toggleMark;
 
   const papers = ["white", "sepia", "night"], paperNames = { white: "White", sepia: "Sepia", night: "Night" };
@@ -763,9 +985,10 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
       case "Home": go(0, false); break;
       case "End": go(pdf.numPages - 1, false); break;
       case "b": case "B": toggleMark(); break;
+      case "h": case "H": setHL(!hlMode); break;
       case "f": case "F": toggleFs(); break;
       case "t": case "T": $("panel").classList.contains("open") ? closePanel() : openPanel("toc"); break;
-      case "Escape": closePanel(); break;
+      case "Escape": closePanel(); if (hlMode) setHL(false); break;
     }
   });
 
@@ -790,7 +1013,7 @@ kbd { font-family: var(--font-ui); font-size: .75rem; border: 1px solid var(--li
     try { lock?.release(); } catch {}
     if (flip) { try { flip.destroy(); } catch {} flip = null; }
     $("holder")?.remove(); pageEls = []; queue.length = 0;
-    closePanel(); reader.hidden = true; $("shelf").hidden = false;
+    setHL(false); closePanel(); reader.hidden = true; $("shelf").hidden = false;
     document.title = "Quiet Pages";
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     renderShelf();
